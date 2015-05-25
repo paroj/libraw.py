@@ -227,8 +227,8 @@ def version():
     return _hdl.libraw_version().decode("utf-8")
 
 class LibRaw:
-    def __init__(self):
-        self._proc = _hdl.libraw_init(0)
+    def __init__(self, flags = 0):
+        self._proc = _hdl.libraw_init(flags)
             
     def __getattr__(self, name):
         try:
@@ -240,8 +240,10 @@ class LibRaw:
             pass
         
         # then this must be a method
+        rawfun = getattr(_hdl, "libraw_" + name)
+        
         def handler(*args):
-            return getattr(_hdl, "libraw_" + name)(self._proc, *args)
+            return rawfun(self._proc, *args)
         
         setattr(self, name, handler)  # cache value
         return handler
