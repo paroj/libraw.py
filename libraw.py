@@ -226,6 +226,10 @@ def strerror(e):
 def version():
     return _hdl.libraw_version().decode("utf-8")
 
+def versionNumber():
+    v = _hdl.libraw_versionNumber()
+    return ((v >> 16) & 0x0000ff, (v >> 8) & 0x0000ff, v & 0x0000ff)
+
 class LibRaw:
     def __init__(self, flags = 0):
         self._proc = _hdl.libraw_init(flags)
