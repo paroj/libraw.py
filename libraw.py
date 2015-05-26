@@ -276,7 +276,7 @@ structure defintions might be incompatible with your version.\n""")
         
 if __name__ == "__main__":    
     if len(sys.argv) < 3:
-        print("usage {} <rawfile> <outfile>.ppm".format(sys.argv[0]))
+        print("usage {} <rawfile> <outfile>".format(sys.argv[0]))
         sys.exit(1)
     
     proc = LibRaw()
@@ -286,4 +286,5 @@ if __name__ == "__main__":
     # Develop the RAW file
     proc.unpack()
     proc.dcraw_process()
+    proc.params.output_tiff = sys.argv[2].endswith(".tiff")
     proc.dcraw_ppm_tiff_writer(sys.argv[2])
