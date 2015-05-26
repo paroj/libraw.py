@@ -19,6 +19,9 @@ import numpy as np
 
 _hdl = cdll.LoadLibrary(ctypes.util.find_library("raw"))
 
+enum_LibRaw_thumbnail_formats = c_int
+time_t = c_long
+
 class ph1_t(Structure):
     _fields_ = [
         ('format', c_int),
@@ -40,7 +43,6 @@ class libraw_iparams_t(Structure):
         ('is_foveon', c_uint),
         ('colors', c_int),
         ('filters', c_uint),
-        ('xtrans', c_char * 6 * 6),
         ('cdesc', c_char * 5),
     ]
 
@@ -81,7 +83,6 @@ class libraw_colordata_t(Structure):
         ('model2', c_char * 64),
         ('profile', c_void_p),
         ('profile_length', c_uint),
-        ('black_stat', c_uint * 8),
     ]
 
 
@@ -91,7 +92,7 @@ class libraw_imgother_t(Structure):
         ('shutter', c_float),
         ('aperture', c_float),
         ('focal_len', c_float),
-        ('timestamp', c_uint),  # time_t
+        ('timestamp', time_t),
         ('shot_order', c_uint),
         ('gpsdata', c_uint * 32),
         ('desc', c_char * 512),
@@ -101,12 +102,12 @@ class libraw_imgother_t(Structure):
 
 class libraw_thumbnail_t(Structure):
     _fields_ = [
-        ('tformat', c_uint),  # LibRaw_thumbnail_formats
+        ('tformat', enum_LibRaw_thumbnail_formats),
         ('twidth', c_ushort),
         ('theight', c_ushort),
         ('tlength', c_uint),
         ('tcolors', c_int),
-        ('thumb', POINTER(c_char)),
+        ('thumb', c_char_p),
     ]
 
 
@@ -151,10 +152,10 @@ class libraw_output_params_t(Structure):
         ('use_camera_wb', c_int),
         ('use_camera_matrix', c_int),
         ('output_color', c_int),
-        ('output_profile', POINTER(c_char)),
-        ('camera_profile', POINTER(c_char)),
-        ('bad_pixels', POINTER(c_char)),
-        ('dark_frame', POINTER(c_char)),
+        ('output_profile', c_char_p),
+        ('camera_profile', c_char_p),
+        ('bad_pixels', c_char_p),
+        ('dark_frame', c_char_p),
         ('output_bps', c_int),
         ('output_tiff', c_int),
         ('user_flip', c_int),
@@ -190,10 +191,6 @@ class libraw_output_params_t(Structure):
         ('wf_debanding', c_int),
         ('wf_deband_treshold', c_float * 4),
         ('use_rawspeed', c_int),
-        ('no_auto_scale', c_int),
-        ('no_interpolation', c_int),
-        ('straw_ycc', c_int),
-        ('force_foveon_x3f', c_int),
     ]
 
 
@@ -232,6 +229,10 @@ def versionNumber():
 
 class LibRaw:
     def __init__(self, flags = 0):
+        if versionNumber() != (0, 15, 4):
+            sys.stdout.write("""libraw.py: warning this version was only tested wit libraw 0.15.4. \
+structure defintions might be incompatible with your version.\n""")
+        
         self._proc = _hdl.libraw_init(flags)
             
     def __getattr__(self, name):
