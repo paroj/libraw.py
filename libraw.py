@@ -230,8 +230,8 @@ def versionNumber():
 class LibRaw:
     def __init__(self, flags = 0):
         if versionNumber() != (0, 15, 4):
-            sys.stdout.write("""libraw.py: warning this version was only tested wit libraw 0.15.4. \
-structure defintions might be incompatible with your version.\n""")
+            sys.stdout.write("""libraw.py: warning this version was only tested with libraw 0.15.4.
+structure definitions might be incompatible with your version.\n""")
         
         self._proc = _hdl.libraw_init(flags)
             
