@@ -72,10 +72,10 @@ class libraw_colordata_t(Structure):
         ('data_maximum', c_uint),
         ('maximum', c_uint),
         ('white', c_ushort * 8 * 8),
-        ('cam_mul', c_float * 4),
+        ('_cam_mul', c_float * 4),
         ('pre_mul', c_float * 4),
         ('cmatrix', c_float * 3 * 4),
-        ('rgb_cam', c_float * 3 * 4),
+        ('_rgb_cam', c_float * 3 * 4),
         ('cam_xyz', c_float * 4 * 3),
         ('phase_one_data', ph1_t),
         ('flash_used', c_float),
@@ -85,6 +85,13 @@ class libraw_colordata_t(Structure):
         ('profile_length', c_uint),
     ]
 
+    @property
+    def rgb_cam(self):
+        return _array_from_memory(self._rgb_cam, (3, 4), np.float32)
+    
+    @property
+    def cam_mul(self):
+        return _array_from_memory(self._cam_mul, (4,), np.float32)
 
 class libraw_imgother_t(Structure):
     _fields_ = [
@@ -124,7 +131,7 @@ class libraw_internal_output_params_t(Structure):
 class libraw_rawdata_t(Structure):
     _fields_ = [
         ('raw_alloc', c_void_p),
-        ('raw_image', POINTER(c_ushort)),
+        ('_raw_image', POINTER(c_ushort)),
         ('color4_image', POINTER(c_ushort * 4)),
         ('color3_image', POINTER(c_ushort * 3)),
         ('ph1_black', POINTER(c_short * 2)),
@@ -134,6 +141,10 @@ class libraw_rawdata_t(Structure):
         ('color', libraw_colordata_t),
     ]
 
+    @property
+    def raw_image(self):
+        S = self.sizes
+        return _array_from_memory(self._raw_image, (S.raw_height, S.raw_width), np.uint16)
 
 class libraw_output_params_t(Structure):
     _fields_ = [
@@ -196,7 +207,7 @@ class libraw_output_params_t(Structure):
 
 class libraw_data_t(Structure):
     _fields_ = [
-        ('image', POINTER(c_ushort * 4)),
+        ('_image', POINTER(c_ushort * 4)),
         ('sizes', libraw_image_sizes_t),
         ('idata', libraw_iparams_t),
         ('params', libraw_output_params_t),
@@ -208,7 +219,12 @@ class libraw_data_t(Structure):
         ('rawdata', libraw_rawdata_t),
         ('parent_class', c_void_p),
     ]
-    
+
+    @property
+    def image(self):
+        S = self.sizes
+        return _array_from_memory(self._image, (S.iheight, S.iwidth, 4), np.uint16)
+
 _hdl.libraw_init.restype = POINTER(libraw_data_t)
 _hdl.libraw_unpack_function_name.restype = c_char_p
 _hdl.libraw_strerror.restype = c_char_p
@@ -236,7 +252,7 @@ def version():
 def versionNumber():
     v = _hdl.libraw_versionNumber()
     return ((v >> 16) & 0x0000ff, (v >> 8) & 0x0000ff, v & 0x0000ff)
-
+    
 class LibRaw:
     def __init__(self, flags=0):
         if versionNumber() != (0, 15, 4):
@@ -244,17 +260,10 @@ class LibRaw:
 structure definitions might be incompatible with your version.\n""")
         
         self._proc = _hdl.libraw_init(flags)
-            
-    def __getattr__(self, name):
-        try:
-            # try handling as an attrribute
-            val = getattr(self._proc.contents, name)
-            setattr(self, name, val)  # cache value
-            return val
-        except AttributeError:
-            pass
+        assert(self._proc.contents)
+        self.imgdata = self._proc.contents
         
-        # then this must be a method
+    def __getattr__(self, name):
         rawfun = getattr(_hdl, "libraw_" + name)
         
         def handler(*args):
@@ -262,22 +271,6 @@ structure definitions might be incompatible with your version.\n""")
         
         setattr(self, name, handler)  # cache value
         return handler
-    
-    @property
-    def image(self):
-        """
-        @return: image as numpy array
-        """
-        S = self.sizes
-        return _array_from_memory(self._proc.contents.image, (S.iheight, S.iwidth), np.uint16)
-    
-    @property
-    def raw_image(self):
-        """
-        @return: raw image as numpy array
-        """
-        S = self.sizes
-        return _array_from_memory(self._proc.contents.rawdata.raw_image, (S.raw_height, S.raw_width), np.uint16)
     
     def open_file(self, filename):
         e = _hdl.libraw_open_file(self._proc, filename.encode('utf-8'))
