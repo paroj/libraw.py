@@ -262,9 +262,8 @@ def versionNumber():
     
 class LibRaw:
     def __init__(self, flags=0):
-        if versionNumber() != (0, 15, 4):
-            sys.stdout.write("""libraw.py: warning this version was only tested with libraw 0.15.4.
-structure definitions might be incompatible with your version.\n""")
+        if versionNumber()[1] > 15:
+            sys.stdout.write("libraw.py: warning - structure definitions are not compatible with your version.\n")
         
         self._proc = _hdl.libraw_init(flags)
         assert(self._proc.contents)
@@ -274,22 +273,15 @@ structure definitions might be incompatible with your version.\n""")
         rawfun = getattr(_hdl, "libraw_" + name)
         
         def handler(*args):
+            # do not pass python strings to C
+            args = [a.encode("utf-8") if isinstance(a, str) else a for a in args]
+            
             e = rawfun(self._proc, *args)
             if e != 0:
                 raise Exception(strerror(e))
         
         setattr(self, name, handler)  # cache value
         return handler
-    
-    def open_file(self, filename):
-        e = _hdl.libraw_open_file(self._proc, filename.encode('utf-8'))
-        if e != 0:
-            raise Exception(strerror(e))
-    
-    def dcraw_ppm_tiff_writer(self, filename):
-        e = _hdl.libraw_dcraw_ppm_tiff_writer(self._proc, filename.encode('utf-8'))
-        if e != 0:
-            raise Exception(strerror(e))
         
 if __name__ == "__main__":    
     if len(sys.argv) < 3:
