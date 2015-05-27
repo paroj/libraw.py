@@ -43,6 +43,7 @@ class libraw_iparams_t(Structure):
         ('is_foveon', c_uint),
         ('colors', c_int),
         ('filters', c_uint),
+        # ('xtrans', c_char * 6 * 6), # 0.16+
         ('cdesc', c_char * 5),
     ]
 
@@ -83,6 +84,7 @@ class libraw_colordata_t(Structure):
         ('model2', c_char * 64),
         ('profile', c_void_p),
         ('profile_length', c_uint),
+        # ('black_stat', c_uint * 8), # 0.16+
     ]
 
     @property
@@ -202,6 +204,11 @@ class libraw_output_params_t(Structure):
         ('wf_debanding', c_int),
         ('wf_deband_treshold', c_float * 4),
         ('use_rawspeed', c_int),
+        # 0.16+
+        # ('no_auto_scale', c_int),
+        # ('no_interpolation', c_int),
+        # ('straw_ycc', c_int),
+        # ('force_foveon_x3f', c_int),
     ]
 
 
@@ -267,7 +274,9 @@ structure definitions might be incompatible with your version.\n""")
         rawfun = getattr(_hdl, "libraw_" + name)
         
         def handler(*args):
-            return rawfun(self._proc, *args)
+            e = rawfun(self._proc, *args)
+            if e != 0:
+                raise Exception(strerror(e))
         
         setattr(self, name, handler)  # cache value
         return handler
