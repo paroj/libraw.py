@@ -214,9 +214,19 @@ _hdl.libraw_unpack_function_name.restype = c_char_p
 _hdl.libraw_strerror.restype = c_char_p
 _hdl.libraw_version.restype = c_char_p
 
-_from_memory = ctypes.pythonapi.PyMemoryView_FromMemory if sys.version_info.major >= 3 else pythonapi.PyBuffer_FromMemory
-_from_memory.restype = ctypes.py_object
+# buffer from memory definition
+_buffer_from_memory = None
+if sys.version_info.major >= 3:
+    _buffer_from_memory = lambda ptr, size: pythonapi.PyMemoryView_FromMemory(ptr, size, 0x200)  # writable
+    pythonapi.PyMemoryView_FromMemory.restype = py_object
+else:
+    _buffer_from_memory = pythonapi.PyBuffer_FromReadWriteMemory
+    _buffer_from_memory.restype = py_object
 
+def _array_from_memory(ptr, shape, type):
+    size = int(np.prod(shape) * np.dtype(type).itemsize)
+    return np.frombuffer(_buffer_from_memory(ptr, size), type).reshape(shape)
+    
 def strerror(e):
     return _hdl.libraw_strerror(e).decode("utf-8")
 
@@ -228,7 +238,7 @@ def versionNumber():
     return ((v >> 16) & 0x0000ff, (v >> 8) & 0x0000ff, v & 0x0000ff)
 
 class LibRaw:
-    def __init__(self, flags = 0):
+    def __init__(self, flags=0):
         if versionNumber() != (0, 15, 4):
             sys.stdout.write("""libraw.py: warning this version was only tested with libraw 0.15.4.
 structure definitions might be incompatible with your version.\n""")
@@ -259,10 +269,15 @@ structure definitions might be incompatible with your version.\n""")
         @return: image as numpy array
         """
         S = self.sizes
-        size = S.iwidth * S.iheight * 4 * 2  # 4 channel, 2 byte per pixel
-        buffer = _from_memory(self._proc.contents.image, size)
-        arr = np.frombuffer(buffer, np.uint16)
-        return arr.reshape(S.iheight, S.iwidth, 4)
+        return _array_from_memory(self._proc.contents.image, (S.iheight, S.iwidth), np.uint16)
+    
+    @property
+    def raw_image(self):
+        """
+        @return: raw image as numpy array
+        """
+        S = self.sizes
+        return _array_from_memory(self._proc.contents.rawdata.raw_image, (S.raw_height, S.raw_width), np.uint16)
     
     def open_file(self, filename):
         e = _hdl.libraw_open_file(self._proc, filename.encode('utf-8'))
