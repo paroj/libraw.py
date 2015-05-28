@@ -67,17 +67,17 @@ class libraw_image_sizes_t(Structure):
 
 class libraw_colordata_t(Structure):
     _fields_ = [
-        ('curve', c_ushort * 0x10000),
-        ('cblack', c_uint * 4),
+        ('_curve', c_ushort * 0x10000),
+        ('_cblack', c_uint * 4),
         ('black', c_uint),
         ('data_maximum', c_uint),
         ('maximum', c_uint),
         ('white', c_ushort * 8 * 8),
         ('_cam_mul', c_float * 4),
-        ('pre_mul', c_float * 4),
-        ('cmatrix', c_float * 3 * 4),
+        ('_pre_mul', c_float * 4),
+        ('_cmatrix', c_float * 3 * 4),
         ('_rgb_cam', c_float * 3 * 4),
-        ('cam_xyz', c_float * 4 * 3),
+        ('_cam_xyz', c_float * 3 * 4),
         ('phase_one_data', ph1_t),
         ('flash_used', c_float),
         ('canon_ev', c_float),
@@ -88,12 +88,32 @@ class libraw_colordata_t(Structure):
     ]
 
     @property
+    def curve(self):
+        return _array_from_memory(self._curve, (0x10000,), np.uint16)
+
+    @property
+    def cmatrix(self):
+        return _array_from_memory(self._cmatrix, (3, 4), np.float32)
+
+    @property
     def rgb_cam(self):
         return _array_from_memory(self._rgb_cam, (3, 4), np.float32)
     
     @property
+    def cam_xyz(self):
+        return _array_from_memory(self._cam_xyz, (3, 4), np.float32)
+    
+    @property
     def cam_mul(self):
         return _array_from_memory(self._cam_mul, (4,), np.float32)
+
+    @property
+    def pre_mul(self):
+        return _array_from_memory(self._pre_mul, (4,), np.float32)
+
+    @property
+    def cblack(self):
+        return _array_from_memory(self._cblack, (4,), np.uint)
 
 class libraw_imgother_t(Structure):
     _fields_ = [
