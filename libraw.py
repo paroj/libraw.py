@@ -17,7 +17,8 @@ import ctypes.util
 import sys
 import numpy as np
 
-_hdl = cdll.LoadLibrary(ctypes.util.find_library("raw"))
+# _hdl = cdll.LoadLibrary(ctypes.util.find_library("raw"))
+_hdl = cdll.LoadLibrary("libraw.so.13.0.0")
 
 enum_LibRaw_thumbnail_formats = c_int
 time_t = c_long
@@ -26,10 +27,12 @@ class ph1_t(Structure):
     _fields_ = [
         ('format', c_int),
         ('key_off', c_int),
-        ('t_black', c_int),
-        ('black_off', c_int),
-        ('split_col', c_int),
         ('tag_21a', c_int),
+        ('t_black', c_int),
+        ('split_col', c_int),
+        ('black_col', c_int),
+        ('split_row', c_int),
+        ('black_row', c_int),
         ('tag_210', c_float),
     ]
 
@@ -38,15 +41,18 @@ class libraw_iparams_t(Structure):
     _fields_ = [
         ('make', c_char * 64),
         ('model', c_char * 64),
+        ('software', c_char * 64), # 0.17+
         ('raw_count', c_uint),
         ('dng_version', c_uint),
         ('is_foveon', c_uint),
         ('colors', c_int),
         ('filters', c_uint),
-        # ('xtrans', c_char * 6 * 6), # 0.16+
+        ('xtrans', (c_char * 6) * 6),  # 0.16+
+        ('xtrans_abs', (c_char * 6) * 6),  # 0.17+
         ('cdesc', c_char * 5),
+        ('xmplen', c_uint),  # 0.17+
+        ('xmpdata', c_char_p),  # 0.17+
     ]
-
 
 class libraw_image_sizes_t(Structure):
     _fields_ = [
@@ -67,10 +73,18 @@ class libraw_image_sizes_t(Structure):
 class libraw_dng_color_t(Structure):
     _fields_ = [
         ('illuminant', c_ushort),
-        ('calibration', (c_float * 4) * 4),
-        ('colormatrix', (c_float * 3) * 4),
+        ('_calibration', (c_float * 4) * 4),
+        ('_colormatrix', (c_float * 4) * 3),
     ]
+    
+    @property
+    def colormatrix(self):
+        return _array_from_memory(self._colormatrix, (4, 3), np.float32).T
 
+    @property
+    def calibration(self):
+        return _array_from_memory(self._calibration, (4, 4), np.float32)
+    
 class canon_makernotes_t(Structure):
     _fields_ = [
         ('CanonColorDataVer', c_int),
@@ -82,23 +96,31 @@ class canon_makernotes_t(Structure):
 class libraw_colordata_t(Structure):
     _fields_ = [
         ('_curve', c_ushort * 0x10000),
-        ('_cblack', c_uint * 4),
+        ('_cblack', c_uint * 4102),
         ('black', c_uint),
         ('data_maximum', c_uint),
         ('maximum', c_uint),
         ('white', c_ushort * 8 * 8),
         ('_cam_mul', c_float * 4),
         ('_pre_mul', c_float * 4),
-        ('_cmatrix', c_float * 3 * 4),
-        ('_rgb_cam', c_float * 3 * 4),
-        ('_cam_xyz', c_float * 3 * 4),
+        ('_cmatrix', (c_float * 4) * 3),
+        ('_rgb_cam', (c_float * 4) * 3),
+        ('_cam_xyz', (c_float * 3) * 4),
         ('phase_one_data', ph1_t),
         ('flash_used', c_float),
         ('canon_ev', c_float),
         ('model2', c_char * 64),
         ('profile', c_void_p),
         ('profile_length', c_uint),
-        # ('black_stat', c_uint * 8), # 0.16+
+        # 0.16+
+        ('black_stat', c_uint * 8),
+        # 0.17+
+        ('dng_color', libraw_dng_color_t * 2),
+        ('canon_makernotes', canon_makernotes_t),
+        ('baseline_exposure', c_float),
+        ('OlympusSensorCalibration', c_int * 2),
+        ('FujiExpoMidPointShift', c_float),
+        ('digitalBack_color', c_int),
     ]
 
     @property
@@ -127,7 +149,7 @@ class libraw_colordata_t(Structure):
 
     @property
     def cblack(self):
-        return _array_from_memory(self._cblack, (4,), np.uint32)
+        return _array_from_memory(self._cblack, (4102,), np.uint32)
 
 class libraw_gps_info_t(Structure):
     _fields_ = [
@@ -151,6 +173,7 @@ class libraw_imgother_t(Structure):
         ('timestamp', time_t),
         ('shot_order', c_uint),
         ('gpsdata', c_uint * 32),
+        ('parsed_gps', libraw_gps_info_t),  # 0.17+
         ('desc', c_char * 512),
         ('artist', c_char * 64),
     ]
@@ -171,7 +194,7 @@ class libraw_internal_output_params_t(Structure):
     _fields_ = [
         ('mix_green', c_uint),
         ('raw_color', c_uint),
-        ('zero_is_bad', c_uint),
+        ('zero_is_bad', c_uint), # 0.17+
         ('shrink', c_ushort),
         ('fuji_width', c_ushort),
     ]
@@ -184,7 +207,7 @@ class libraw_rawdata_t(Structure):
         ('color4_image', POINTER(c_ushort * 4)),
         ('color3_image', POINTER(c_ushort * 3)),
         ('ph1_black', POINTER(c_short * 2)),
-        # ('ph1_rblack', POINTER(c_short * 2)), # 0.17+
+        ('ph1_rblack', POINTER(c_short * 2)),  # 0.17+
         ('iparams', libraw_iparams_t),
         ('sizes', libraw_image_sizes_t),
         ('ioparams', libraw_internal_output_params_t),
@@ -223,7 +246,7 @@ class libraw_output_params_t(Structure):
         ('user_qual', c_int),
         ('user_black', c_int),
         ('user_cblack', c_int * 4),
-        ('sony_arw2_hack', c_int),
+        # ('sony_arw2_hack', c_int), # < 0.17
         ('user_sat', c_int),
         ('med_passes', c_int),
         ('auto_bright_thr', c_float),
@@ -253,10 +276,15 @@ class libraw_output_params_t(Structure):
         ('wf_deband_treshold', c_float * 4),
         ('use_rawspeed', c_int),
         # 0.16+
-        # ('no_auto_scale', c_int),
-        # ('no_interpolation', c_int),
-        # ('straw_ycc', c_int),
-        # ('force_foveon_x3f', c_int),
+        ('no_auto_scale', c_int),
+        ('no_interpolation', c_int),
+        ('sraw_ycc', c_int),
+        ('force_foveon_x3f', c_int),
+        # 0.17+
+        ('x3f_flags', c_int),
+        ('sony_arw2_options', c_int),
+        ('sony_arw2_posterization_thr', c_int),
+        ('coolscan_nef_gamma', c_float),
     ]
 
 class libraw_makernotes_lens_t(Structure):
@@ -332,7 +360,7 @@ class libraw_data_t(Structure):
         ('_image', POINTER(c_ushort * 4)),
         ('sizes', libraw_image_sizes_t),
         ('idata', libraw_iparams_t),
-        #('lens', libraw_lensinfo_t), # 0.17+
+        ('lens', libraw_lensinfo_t),  # 0.17+
         ('params', libraw_output_params_t),
         ('progress_flags', c_uint),
         ('process_warnings', c_uint),
