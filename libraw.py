@@ -64,6 +64,20 @@ class libraw_image_sizes_t(Structure):
         ('mask', c_int * 8 * 4),
     ]
 
+class libraw_dng_color_t(Structure):
+    _fields_ = [
+        ('illuminant', c_ushort),
+        ('calibration', (c_float * 4) * 4),
+        ('colormatrix', (c_float * 3) * 4),
+    ]
+
+class canon_makernotes_t(Structure):
+    _fields_ = [
+        ('CanonColorDataVer', c_int),
+        ('CanonColorDataSubVer', c_int),
+        ('SpecularWhiteLevel', c_int),
+        ('AverageBlackLevel', c_int),
+    ]    
 
 class libraw_colordata_t(Structure):
     _fields_ = [
@@ -115,6 +129,19 @@ class libraw_colordata_t(Structure):
     def cblack(self):
         return _array_from_memory(self._cblack, (4,), np.uint)
 
+class libraw_gps_info_t(Structure):
+    _fields_ = [
+        ('latitude', c_float * 3),
+        ('longtitude', c_float * 3),
+        ('gpstimestamp', c_float * 3),
+        ('altitude', c_float),
+        ('altref', c_char),
+        ('latref', c_char),
+        ('longref', c_char),
+        ('gpsstatus', c_char),
+        ('gpsparsed', c_char),
+    ]
+    
 class libraw_imgother_t(Structure):
     _fields_ = [
         ('iso_speed', c_float),
@@ -157,12 +184,13 @@ class libraw_rawdata_t(Structure):
         ('color4_image', POINTER(c_ushort * 4)),
         ('color3_image', POINTER(c_ushort * 3)),
         ('ph1_black', POINTER(c_short * 2)),
+        # ('ph1_rblack', POINTER(c_short * 2)), # 0.17+
         ('iparams', libraw_iparams_t),
         ('sizes', libraw_image_sizes_t),
         ('ioparams', libraw_internal_output_params_t),
         ('color', libraw_colordata_t),
     ]
-
+    
     @property
     def raw_image(self):
         S = self.sizes
@@ -231,12 +259,80 @@ class libraw_output_params_t(Structure):
         # ('force_foveon_x3f', c_int),
     ]
 
+class libraw_makernotes_lens_t(Structure):
+    _fields_ = [
+        ('LensID', c_ulonglong),
+        ('Lens', c_char * 128),
+        ('LensFormat', c_ushort),
+        ('LensMount', c_ushort),
+        ('CamID', c_ulonglong),
+        ('CameraFormat', c_ushort),
+        ('CameraMount', c_ushort),
+        ('body', c_char * 64),
+        ('FocalType', c_short),
+        ('LensFeatures_pre', c_char * 16),
+        ('LensFeatures_suf', c_char * 16),
+        ('MinFocal', c_float),
+        ('MaxFocal', c_float),
+        ('MaxAp4MinFocal', c_float),
+        ('MaxAp4MaxFocal', c_float),
+        ('MinAp4MinFocal', c_float),
+        ('MinAp4MaxFocal', c_float),
+        ('MaxAp', c_float),
+        ('MinAp', c_float),
+        ('CurFocal', c_float),
+        ('CurAp', c_float),
+        ('MaxAp4CurFocal', c_float),
+        ('MinAp4CurFocal', c_float),
+        ('LensFStops', c_float),
+        ('TeleconverterID', c_ulonglong),
+        ('Teleconverter', c_char * 128),
+        ('AdapterID', c_ulonglong),
+        ('Adapter', c_char * 128),
+        ('AttachmentID', c_ulonglong),
+        ('Attachment', c_char * 128),
+        ('CanonFocalUnits', c_short),
+        ('FocalLengthIn35mmFormat', c_float),
+    ]
 
+class libraw_nikonlens_t(Structure):
+    _fields_ = [
+        ('NikonEffectiveMaxAp', c_float),
+        ('NikonLensIDNumber', c_ubyte),
+        ('NikonLensFStops', c_ubyte),
+        ('NikonMCUVersion', c_ubyte),
+        ('NikonLensType', c_ubyte),
+    ]
+
+class libraw_dnglens_t(Structure):
+    _fields_ = [
+        ('MinFocal', c_float),
+        ('MaxFocal', c_float),
+        ('MaxAp4MinFocal', c_float),
+        ('MaxAp4MaxFocal', c_float),
+    ]
+
+class libraw_lensinfo_t(Structure):
+    _fields_ = [
+        ('MinFocal', c_float),
+        ('MaxFocal', c_float),
+        ('MaxAp4MinFocal', c_float),
+        ('MaxAp4MaxFocal', c_float),
+        ('EXIF_MaxAp', c_float),
+        ('LensMake', c_char * 128),
+        ('Lens', c_char * 128),
+        ('FocalLengthIn35mmFormat', c_ushort),
+        ('nikon', libraw_nikonlens_t),
+        ('dng', libraw_dnglens_t),
+        ('makernotes', libraw_makernotes_lens_t),
+    ]
+    
 class libraw_data_t(Structure):
     _fields_ = [
         ('_image', POINTER(c_ushort * 4)),
         ('sizes', libraw_image_sizes_t),
         ('idata', libraw_iparams_t),
+        #('lens', libraw_lensinfo_t), # 0.17+
         ('params', libraw_output_params_t),
         ('progress_flags', c_uint),
         ('process_warnings', c_uint),
