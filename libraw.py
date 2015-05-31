@@ -127,7 +127,7 @@ class libraw_colordata_t(Structure):
 
     @property
     def cblack(self):
-        return _array_from_memory(self._cblack, (4,), np.uint)
+        return _array_from_memory(self._cblack, (4,), np.uint32)
 
 class libraw_gps_info_t(Structure):
     _fields_ = [
