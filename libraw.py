@@ -18,7 +18,7 @@ import sys
 import numpy as np
 
 # _hdl = cdll.LoadLibrary(ctypes.util.find_library("raw"))
-_hdl = cdll.LoadLibrary("libraw.so.13.0.0")
+_hdl = cdll.LoadLibrary("libraw.so.15.0.0")
 
 enum_LibRaw_thumbnail_formats = c_int
 time_t = c_long
@@ -85,7 +85,7 @@ class libraw_dng_color_t(Structure):
     def calibration(self):
         return _array_from_memory(self._calibration, (4, 4), np.float32)
     
-class canon_makernotes_t(Structure):
+class libraw_canon_makernotes_t(Structure):
     _fields_ = [
         ('CanonColorDataVer', c_int),
         ('CanonColorDataSubVer', c_int),
@@ -116,7 +116,7 @@ class libraw_colordata_t(Structure):
         ('black_stat', c_uint * 8),
         # 0.17+
         ('dng_color', libraw_dng_color_t * 2),
-        ('canon_makernotes', canon_makernotes_t),
+        ('canon_makernotes', libraw_canon_makernotes_t),
         ('baseline_exposure', c_float),
         ('OlympusSensorCalibration', c_int * 2),
         ('FujiExpoMidPointShift', c_float),
@@ -406,7 +406,7 @@ def versionNumber():
     
 class LibRaw:
     def __init__(self, flags=0):
-        if versionNumber()[1] > 15:
+        if versionNumber()[1] != 17:
             sys.stdout.write("libraw.py: warning - structure definitions are not compatible with your version.\n")
         
         self._proc = _hdl.libraw_init(flags)
