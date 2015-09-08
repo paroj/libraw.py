@@ -6,4 +6,4 @@ semi-automatically generated using ctypesgen.
 
 Licensing
 ---------
-LGPLv2 (same as libsensors3)
+LGPLv2 (same as libraw)
